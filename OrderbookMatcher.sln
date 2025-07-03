@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36221.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderbookMatcher", "OrderbookMatcher.csproj", "{0E851757-D860-4BC9-8CB4-00B7A2063BB0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderbookMatcher.Tests", "Orderbook.Tests\OrderbookMatcher.Tests.csproj", "{606DAFDB-F512-9BF1-D6A8-D694F59867B6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0E851757-D860-4BC9-8CB4-00B7A2063BB0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0E851757-D860-4BC9-8CB4-00B7A2063BB0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0E851757-D860-4BC9-8CB4-00B7A2063BB0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0E851757-D860-4BC9-8CB4-00B7A2063BB0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{606DAFDB-F512-9BF1-D6A8-D694F59867B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{606DAFDB-F512-9BF1-D6A8-D694F59867B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{606DAFDB-F512-9BF1-D6A8-D694F59867B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{606DAFDB-F512-9BF1-D6A8-D694F59867B6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A7CBCF62-57D6-4FF3-AE8B-9ADBFB23C44D}
+	EndGlobalSection
+EndGlobal
