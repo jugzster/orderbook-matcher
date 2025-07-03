@@ -1,3 +1,5 @@
+namespace OrderbookMatcher.Tests;
+
 using Shouldly;
 
 [TestClass]
