@@ -1,8 +1,6 @@
 namespace OrderbookMatcher.Tests;
 
-using System;
-using System.Collections.Generic;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OrderbookMatcher;
 using Shouldly;
 
 [TestClass]

@@ -1,13 +1,13 @@
 ﻿// Matches orders based on price-time priority
+namespace OrderbookMatcher;
+
 public class PriceTimeOrderMatcher : IOrderMatcher
 {
     public List<Order> MatchOrders(List<Order> orders)
     {
         // Reset order state and match list
         foreach (var order in orders)
-        {
             order.ResetMatchState();
-        }
 
         // Sort orders by price-time priority
         // For buy orders, higher price first
@@ -24,7 +24,7 @@ public class PriceTimeOrderMatcher : IOrderMatcher
             .ThenBy(o => o.OrderDateTime)
             .ToList();
 
-        // Use queue for faster matching, avoids duplicate enumeration
+        // Use queue for O(n) matching, avoids duplicate enumeration
         var sellQueue = new Queue<Order>(sellOrders);
 
         // Go through each buy order and try to match with sell orders

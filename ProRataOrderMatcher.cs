@@ -1,4 +1,6 @@
 ﻿// Matches orders based on pro-rata allocation
+namespace OrderbookMatcher;
+
 public class ProRataOrderMatcher : IOrderMatcher
 {
     public List<Order> MatchOrders(List<Order> orders)
@@ -21,6 +23,7 @@ public class ProRataOrderMatcher : IOrderMatcher
         foreach (var buyGroup in buyGroups)
         {
             var notional = buyGroup.Key;
+            // Get the sell orders for this notional
             if (!sellGroupDict.TryGetValue(notional, out var sells))
                 continue;
 
@@ -46,6 +49,7 @@ public class ProRataOrderMatcher : IOrderMatcher
                     // Use Math.Floor to allocate whole shares and to avoid over-allocation if rounding
                     var sharesToAllocate = (int)Math.Floor(ratio * matchVolume);
 
+                    // Use queue for O(n) matching, ensures order is fully "drained" only once
                     var queue = new Queue<Order>(sells.Where(s => s.RemainingVolume > 0));
                     while (sharesToAllocate > 0 && queue.Count > 0)
                     {
@@ -55,7 +59,7 @@ public class ProRataOrderMatcher : IOrderMatcher
                         int allocation = Math.Min(sell.RemainingVolume, sharesToAllocate);
                         if (allocation == 0)
                         {
-                            queue.Dequeue(); // Remove exhausted order
+                            queue.Dequeue(); // Remove drained order
                             continue;
                         }
 
@@ -69,7 +73,7 @@ public class ProRataOrderMatcher : IOrderMatcher
 
                         sharesToAllocate -= allocation;
                         if (sell.RemainingVolume == 0)
-                            queue.Dequeue(); // Remove exhausted order
+                            queue.Dequeue(); // Remove drained order
                     }
                 }
             }
@@ -85,6 +89,7 @@ public class ProRataOrderMatcher : IOrderMatcher
                     // Use Math.Floor to allocate whole shares and to avoid over-allocation if rounding
                     var sharesToAllocate = (int)Math.Floor(ratio * matchVolume);
 
+                    // Use queue for O(n) matching, ensures order is fully "drained" only once
                     var queue = new Queue<Order>(buys.Where(s => s.RemainingVolume > 0));
                     while (sharesToAllocate > 0 && queue.Count > 0)
                     {
@@ -94,7 +99,7 @@ public class ProRataOrderMatcher : IOrderMatcher
                         int allocation = Math.Min(buy.RemainingVolume, sharesToAllocate);
                         if (allocation == 0)
                         {
-                            queue.Dequeue(); // Remove exhausted order
+                            queue.Dequeue(); // Remove drained order
                             continue;
                         }
 
@@ -108,7 +113,7 @@ public class ProRataOrderMatcher : IOrderMatcher
 
                         sharesToAllocate -= allocation;
                         if (buy.RemainingVolume == 0)
-                            queue.Dequeue(); // Remove exhausted order
+                            queue.Dequeue(); // Remove drained order
                     }
                 }
             }

@@ -1,4 +1,6 @@
-﻿public enum MatchState
+﻿namespace OrderbookMatcher;
+
+public enum MatchState
 {
     Pending, // Initial state
     NoMatch,

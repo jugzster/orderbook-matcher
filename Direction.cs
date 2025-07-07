@@ -1,4 +1,6 @@
-﻿public enum Direction
+﻿namespace OrderbookMatcher;
+
+public enum Direction
 {
     Buy,
     Sell

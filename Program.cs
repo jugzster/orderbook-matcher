@@ -1,4 +1,7 @@
-﻿Console.WriteLine("--- Orders matched by price-time, before matching ---");
+﻿using OrderbookMatcher;
+
+Console.WriteLine("--- Orders matched by price-time ---");
+Console.WriteLine("Before matching:");
 List<Order> priceTimeOrders =
 [
     new Order("A", "A1", Direction.Buy, 100, 4.99m, new DateTime(2025, 6, 1, 9, 27, 0)),
@@ -11,11 +14,12 @@ Print(priceTimeOrders);
 
 IOrderMatcher priceTimeOrderMatcher = new PriceTimeOrderMatcher();
 List<Order> priceTimeMatchedOrders = priceTimeOrderMatcher.MatchOrders(priceTimeOrders);
-Console.WriteLine("Orders matched by price-time, after matching:");
+Console.WriteLine("\nAfter matching:");
 Print(priceTimeMatchedOrders);
 
 
-Console.WriteLine("\n--- Orders matched by pro-rata, before matching ---");
+Console.WriteLine("\n--- Orders matched by pro-rata ---");
+Console.WriteLine("Before matching:");
 List<Order> proRataOrders =
 [
     new Order("A", "A1", Direction.Buy, 50, 5.00m, new DateTime(2025, 6, 1, 9, 27, 0)),
@@ -29,7 +33,7 @@ Print(proRataOrders);
 
 IOrderMatcher proRataOrderMatcher = new ProRataOrderMatcher();
 List<Order> proRataMatchedOrders = proRataOrderMatcher.MatchOrders(proRataOrders);
-Console.WriteLine("Orders matched by pro-rate, after matching:");
+Console.WriteLine("\nAfter matching:");
 Print(proRataMatchedOrders);
 
 Console.WriteLine("Done! Press any key to exit...");
@@ -38,10 +42,11 @@ static void Print(List<Order> orders)
 {
     foreach (var order in orders.OrderBy(o => o.OrderId))
     {
-        Console.WriteLine($"OrderId {order.OrderId} - {order.MatchState}, Original {order.Volume}, Remaining: {order.RemainingVolume}");
+        Console.WriteLine($"OrderId {order.OrderId} {order.Direction} - {order.MatchState}, Notional {order.Notional}, " +
+            $"Original {order.Volume}, Remaining {order.RemainingVolume}");
         foreach (var match in order.MatchedOrders)
         {
-            Console.WriteLine($"  - Matched with Order {match.OrderId}, Notional: {match.Notional}, Volume: {match.Volume}");
+            Console.WriteLine($"  - Matched with {match.OrderId}, Notional {match.Notional}, Volume {match.Volume}");
         }
     }
 }

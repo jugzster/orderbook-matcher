@@ -1,28 +1,17 @@
-﻿public class Order
-{
-    public string CompanyId { get; init; }
-    public string OrderId { get; init; }
-    public Direction Direction { get; init; }
-    public int Volume { get; init; }
-    public decimal Notional { get; init; }
-    public DateTime OrderDateTime { get; init; }
-    public MatchState MatchState { get; set; }
-    public int RemainingVolume { get; set; }
-    public List<Match> MatchedOrders { get; set; }
+﻿namespace OrderbookMatcher;
 
-    public Order(string companyId, string orderId, Direction direction, int volume, decimal notional,
-        DateTime orderDateTime)
-    {
-        CompanyId = companyId;
-        OrderId = orderId;
-        Direction = direction;
-        Volume = volume;
-        Notional = notional;
-        OrderDateTime = orderDateTime;
-        MatchState = MatchState.Pending;
-        RemainingVolume = volume; // Initially, remaining volume is the same as original volume
-        MatchedOrders = [];
-    }
+public class Order(string companyId, string orderId, Direction direction, int volume, decimal notional,
+    DateTime orderDateTime)
+{
+    public string CompanyId { get; init; } = companyId;
+    public string OrderId { get; init; } = orderId;
+    public Direction Direction { get; init; } = direction;
+    public int Volume { get; init; } = volume;
+    public decimal Notional { get; init; } = notional;
+    public DateTime OrderDateTime { get; init; } = orderDateTime;
+    public MatchState MatchState { get; set; } = MatchState.Pending;
+    public int RemainingVolume { get; set; } = volume; // Initially, remaining volume is the same as original volume
+    public List<Match> MatchedOrders { get; set; } = [];
 
     public void ResetMatchState()
     {

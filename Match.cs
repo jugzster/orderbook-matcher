@@ -1,1 +1,3 @@
-﻿public record Match(string OrderId, decimal Notional, int Volume);
+﻿namespace OrderbookMatcher;
+
+public record Match(string OrderId, decimal Notional, int Volume);
