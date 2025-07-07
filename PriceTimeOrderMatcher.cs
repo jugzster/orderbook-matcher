@@ -6,13 +6,7 @@ public class PriceTimeOrderMatcher : IOrderMatcher
         // Reset order state and match list
         foreach (var order in orders)
         {
-            order.RemainingVolume = order.Volume;
-            order.MatchedOrders.Clear();
-            order.MatchState = MatchState.Pending;
-
-            // Invalid orders
-            if (order.Volume <= 0)
-                order.MatchState = MatchState.InvalidOrder;
+            order.ResetMatchState();
         }
 
         // Sort orders by price-time priority

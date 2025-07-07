@@ -23,4 +23,14 @@
         RemainingVolume = volume; // Initially, remaining volume is the same as original volume
         MatchedOrders = [];
     }
+
+    public void ResetMatchState()
+    {
+        RemainingVolume = Volume;
+        MatchedOrders.Clear();
+        MatchState = MatchState.Pending;
+
+        if (Volume <= 0)
+            MatchState = MatchState.InvalidOrder;
+    }
 }

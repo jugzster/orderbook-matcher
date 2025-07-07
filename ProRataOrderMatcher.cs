@@ -3,43 +3,33 @@ public class ProRataOrderMatcher : IOrderMatcher
 {
     public List<Order> MatchOrders(List<Order> orders)
     {
-        // Calculate based on pro-rata allocation
         // Reset order state and match list
         foreach (var order in orders)
-        {
-            order.RemainingVolume = order.Volume;
-            order.MatchedOrders.Clear();
-            order.MatchState = MatchState.Pending;
-         
-            // Invalid orders
-            if (order.Volume <= 0)
-                order.MatchState = MatchState.InvalidOrder;
-        }
+            order.ResetMatchState();
 
         // Group orders by notional and direction
         var buyGroups = orders
             .Where(o => o.Direction == Direction.Buy && o.MatchState == MatchState.Pending)
-            .GroupBy(o => o.Notional)
-            .OrderByDescending(g => g.Key); // Highest notional first
-
-        var sellGroups = orders
-            .Where(o => o.Direction == Direction.Sell && o.MatchState == MatchState.Pending)
             .GroupBy(o => o.Notional);
+
+        // Group orders into a dictionary for O(1) lookup
+        var sellGroupDict = orders
+            .Where(o => o.Direction == Direction.Sell && o.MatchState == MatchState.Pending)
+            .GroupBy(o => o.Notional)
+            .ToDictionary(g => g.Key, g => g);
 
         foreach (var buyGroup in buyGroups)
         {
             var notional = buyGroup.Key;
-            var matchingSellGroup = sellGroups.FirstOrDefault(g => g.Key == notional);
-            if (matchingSellGroup == null)
+            if (!sellGroupDict.TryGetValue(notional, out var sells))
                 continue;
 
             var buys = buyGroup.ToList();
-            var sells = matchingSellGroup.ToList();
 
-            int totalBuyVolume = buys.Sum(b => b.RemainingVolume);
-            int totalSellVolume = sells.Sum(s => s.RemainingVolume);
-            // Use the minimum of total buy and sell volumes to aoid over-matching
-            int matchVolume = Math.Min(totalBuyVolume, totalSellVolume);
+            var totalBuyVolume = buys.Sum(b => b.RemainingVolume);
+            var totalSellVolume = sells.Sum(s => s.RemainingVolume);
+            // Use the minimum of total buy and sell volumes to avoid over-matching
+            var matchVolume = Math.Min(totalBuyVolume, totalSellVolume);
 
             if (matchVolume == 0)
                 continue;
@@ -52,18 +42,22 @@ public class ProRataOrderMatcher : IOrderMatcher
                     if (buy.RemainingVolume == 0)
                         continue;
 
-                    double ratio = (double)buy.RemainingVolume / totalBuyVolume;
+                    var ratio = (double)buy.RemainingVolume / totalBuyVolume;
                     // Use Math.Floor to allocate whole shares and to avoid over-allocation if rounding
-                    int sharesToAllocate = (int)Math.Floor(ratio * matchVolume);
+                    var sharesToAllocate = (int)Math.Floor(ratio * matchVolume);
 
-                    foreach (var sell in sells.Where(s => s.RemainingVolume > 0))
+                    var queue = new Queue<Order>(sells.Where(s => s.RemainingVolume > 0));
+                    while (sharesToAllocate > 0 && queue.Count > 0)
                     {
-                        if (sharesToAllocate == 0)
-                            break;
+                        var sell = queue.Peek();
+
                         // Use Math.Min to ensure we don't allocate more than available
                         int allocation = Math.Min(sell.RemainingVolume, sharesToAllocate);
                         if (allocation == 0)
+                        {
+                            queue.Dequeue(); // Remove exhausted order
                             continue;
+                        }
 
                         // Update matched orders
                         buy.RemainingVolume -= allocation;
@@ -74,6 +68,8 @@ public class ProRataOrderMatcher : IOrderMatcher
                         sell.MatchedOrders.Add(new Match(buy.OrderId, notional, allocation));
 
                         sharesToAllocate -= allocation;
+                        if (sell.RemainingVolume == 0)
+                            queue.Dequeue(); // Remove exhausted order
                     }
                 }
             }
@@ -85,18 +81,22 @@ public class ProRataOrderMatcher : IOrderMatcher
                     if (sell.RemainingVolume == 0)
                         continue;
 
-                    double ratio = (double)sell.RemainingVolume / totalSellVolume;
+                    var ratio = (double)sell.RemainingVolume / totalSellVolume;
                     // Use Math.Floor to allocate whole shares and to avoid over-allocation if rounding
-                    int sharesToAllocate = (int)Math.Floor(ratio * matchVolume);
+                    var sharesToAllocate = (int)Math.Floor(ratio * matchVolume);
 
-                    foreach (var buy in buys.Where(s => s.RemainingVolume > 0))
+                    var queue = new Queue<Order>(buys.Where(s => s.RemainingVolume > 0));
+                    while (sharesToAllocate > 0 && queue.Count > 0)
                     {
-                        if (sharesToAllocate == 0)
-                            break;
+                        var buy = queue.Peek();
+
                         // Use Math.Min to ensure we don't allocate more than available
                         int allocation = Math.Min(buy.RemainingVolume, sharesToAllocate);
                         if (allocation == 0)
+                        {
+                            queue.Dequeue(); // Remove exhausted order
                             continue;
+                        }
 
                         // Update matched orders
                         sell.RemainingVolume -= allocation;
@@ -107,6 +107,8 @@ public class ProRataOrderMatcher : IOrderMatcher
                         buy.MatchedOrders.Add(new Match(sell.OrderId, notional, allocation));
 
                         sharesToAllocate -= allocation;
+                        if (buy.RemainingVolume == 0)
+                            queue.Dequeue(); // Remove exhausted order
                     }
                 }
             }
