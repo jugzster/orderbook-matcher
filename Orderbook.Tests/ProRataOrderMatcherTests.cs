@@ -305,15 +305,14 @@ public class ProRataOrderMatcherTests
 
 
     [TestMethod]
-    public void MatchOrders_MultipleOrdersSameVolumeAndNotional_LeftoverSharesDistributed()
+    public void MatchOrders_WithLeftoverShares_LeftoverSharesDistributed()
     {
         // 3 buys, 2 sells, total buy=300, total sell=100
-        // Each buy should get 33, 33, 34 (leftover share goes to earliest order)
         var orders = new List<Order>
         {
-            new Order("A", "A1", Direction.Buy, 100, 5.00m, DateTime.Now.AddSeconds(1)),
-            new Order("A", "A2", Direction.Buy, 100, 5.00m, DateTime.Now.AddSeconds(2)),
-            new Order("A", "A3", Direction.Buy, 100, 5.00m, DateTime.Now.AddSeconds(3)),
+            new Order("A", "A1", Direction.Buy, 200, 5.00m, DateTime.Now.AddSeconds(1)),
+            new Order("A", "A2", Direction.Buy, 75, 5.00m, DateTime.Now.AddSeconds(2)),
+            new Order("A", "A3", Direction.Buy, 25, 5.00m, DateTime.Now.AddSeconds(3)),
             new Order("B", "B1", Direction.Sell, 50, 5.00m, DateTime.Now),
             new Order("B", "B2", Direction.Sell, 50, 5.00m, DateTime.Now)
         };
@@ -321,15 +320,15 @@ public class ProRataOrderMatcherTests
 
         var result = matcher.MatchOrders(orders);
 
-        // At least one buy should get 34 if there is a leftover share
+        // Buys should get 67, 25, 8 (leftover share goes to order with biggest remainder)
         var a1Sum = result.First(o => o.OrderId == "A1").MatchedOrders.Sum(m => m.Volume);
-        a1Sum.ShouldBe(34);
+        a1Sum.ShouldBe(67);
 
         var a2Sum = result.First(o => o.OrderId == "A2").MatchedOrders.Sum(m => m.Volume);
-        a2Sum.ShouldBe(33);
+        a2Sum.ShouldBe(25);
 
         var a3Sum = result.First(o => o.OrderId == "A3").MatchedOrders.Sum(m => m.Volume); ;
-        a3Sum.ShouldBe(33);
+        a3Sum.ShouldBe(8);
 
         var totalMatched = a1Sum + a2Sum + a3Sum;
         totalMatched.ShouldBe(100);
