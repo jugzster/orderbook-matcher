@@ -30,6 +30,9 @@ public class PriceTimeOrderMatcher : IOrderMatcher
         // Go through each buy order and try to match with sell orders
         foreach (var buyOrder in buyOrders)
         {
+            if (sellQueue.Count == 0)
+                break;
+
             if (buyOrder.RemainingVolume <= 0)
                 continue;
 

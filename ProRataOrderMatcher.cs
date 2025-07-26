@@ -28,6 +28,7 @@ public class ProRataOrderMatcher : IOrderMatcher
                 continue;
 
             var buys = buyGroup.ToList();
+            var sellList = sells.ToList();
 
             var totalBuyVolume = buys.Sum(b => b.RemainingVolume);
             var totalSellVolume = sells.Sum(s => s.RemainingVolume);
@@ -40,23 +41,22 @@ public class ProRataOrderMatcher : IOrderMatcher
             // If buy volume is greater than or equal to sell volume, compute ratio based on buy volume then allocate to sells
             if (totalBuyVolume >= totalSellVolume)
             {
-                foreach (var buy in buys)
+                List<(Order order, int toAllocate)> allocations = GetProRataAllocations(buys, matchVolume);
+
+                // Use queue for O(n) matching, ensures order is fully "drained" only once
+                var queue = new Queue<Order>(sells.Where(s => s.RemainingVolume > 0));
+
+                foreach (var (buy, sharesToAllocate) in allocations)
                 {
-                    if (buy.RemainingVolume == 0)
+                    if (buy.RemainingVolume == 0 || sharesToAllocate == 0)
                         continue;
 
-                    var ratio = (double)buy.RemainingVolume / totalBuyVolume;
-                    // Use Math.Floor to allocate whole shares and to avoid over-allocation if rounding
-                    var sharesToAllocate = (int)Math.Floor(ratio * matchVolume);
-
-                    // Use queue for O(n) matching, ensures order is fully "drained" only once
-                    var queue = new Queue<Order>(sells.Where(s => s.RemainingVolume > 0));
-                    while (sharesToAllocate > 0 && queue.Count > 0)
+                    var remaining = sharesToAllocate; // sharesToAllocate is readonly
+                    while (remaining > 0 && queue.Count > 0)
                     {
                         var sell = queue.Peek();
-
-                        // Use Math.Min to ensure we don't allocate more than available
-                        int allocation = Math.Min(sell.RemainingVolume, sharesToAllocate);
+                        // Take the lower of the two to ensure we don't over-allocate in case other side's shares are not enough
+                        int allocation = Math.Min(sell.RemainingVolume, remaining);
                         if (allocation == 0)
                         {
                             queue.Dequeue(); // Remove drained order
@@ -71,7 +71,7 @@ public class ProRataOrderMatcher : IOrderMatcher
                         buy.MatchedOrders.Add(new Match(sell.OrderId, notional, allocation));
                         sell.MatchedOrders.Add(new Match(buy.OrderId, notional, allocation));
 
-                        sharesToAllocate -= allocation;
+                        remaining -= allocation;
                         if (sell.RemainingVolume == 0)
                             queue.Dequeue(); // Remove drained order
                     }
@@ -80,22 +80,21 @@ public class ProRataOrderMatcher : IOrderMatcher
             // If sell volume is greater than buy volume, compute ratio based on sell volume then allocate to buys
             else
             {
-                foreach (var sell in sells)
+                List<(Order order, int toAllocate)> allocations = GetProRataAllocations(sellList, matchVolume);
+
+                // Use queue for O(n) matching, ensures order is fully "drained" only once
+                var queue = new Queue<Order>(buys.Where(s => s.RemainingVolume > 0));
+
+                foreach (var (sell, sharesToAllocate) in allocations)
                 {
-                    if (sell.RemainingVolume == 0)
+                    if (sell.RemainingVolume == 0 || sharesToAllocate == 0)
                         continue;
 
-                    var ratio = (double)sell.RemainingVolume / totalSellVolume;
-                    // Use Math.Floor to allocate whole shares and to avoid over-allocation if rounding
-                    var sharesToAllocate = (int)Math.Floor(ratio * matchVolume);
-
-                    // Use queue for O(n) matching, ensures order is fully "drained" only once
-                    var queue = new Queue<Order>(buys.Where(s => s.RemainingVolume > 0));
-                    while (sharesToAllocate > 0 && queue.Count > 0)
+                    var remaining = sharesToAllocate; // sharesToAllocate is readonly
+                    while (remaining > 0 && queue.Count > 0)
                     {
                         var buy = queue.Peek();
-
-                        // Use Math.Min to ensure we don't allocate more than available
+                        // Take the lower of the two to ensure we don't over-allocate in case other side's shares are not enough
                         int allocation = Math.Min(buy.RemainingVolume, sharesToAllocate);
                         if (allocation == 0)
                         {
@@ -111,7 +110,7 @@ public class ProRataOrderMatcher : IOrderMatcher
                         sell.MatchedOrders.Add(new Match(buy.OrderId, notional, allocation));
                         buy.MatchedOrders.Add(new Match(sell.OrderId, notional, allocation));
 
-                        sharesToAllocate -= allocation;
+                        remaining -= allocation;
                         if (buy.RemainingVolume == 0)
                             queue.Dequeue(); // Remove drained order
                     }
@@ -132,5 +131,43 @@ public class ProRataOrderMatcher : IOrderMatcher
         }
 
         return orders;
+    }
+
+    private List<(Order order, int toAllocate)> GetProRataAllocations(List<Order> orders, int matchVolume)
+    {
+        int totalRemainingVolume = orders.Sum(o => o.RemainingVolume);
+        if (totalRemainingVolume == 0 || matchVolume == 0)
+            return orders.Select(order => (order, 0)).ToList();
+
+        List<(Order order, int floorAlloc, double remainder)> allocations = [];
+        int floorSum = 0;
+
+        // Compute the allocations based on ratio of order's remaining volume to total remaining volume
+        // Store the remainder for allocation later
+        foreach (var order in orders)
+        {
+            double ratio = (double)order.RemainingVolume / totalRemainingVolume;
+            double exactAmount = ratio * matchVolume;
+            int floorAlloc = (int)Math.Floor(exactAmount);
+            double remainder = exactAmount - floorAlloc;
+
+            allocations.Add((order, floorAlloc, remainder));
+            floorSum += floorAlloc;
+        }
+
+        // Distribute any leftover shares (due to rounding down) to orders with largest remainders
+        int totalRemainder = matchVolume - floorSum;
+        var sorted = allocations.OrderByDescending(x => x.remainder)
+            .ThenBy(x => x.order.OrderId) // Tie-breaker
+            .ToList();
+
+        for (int i = 0; i < totalRemainder; i++)
+        {
+            var order = sorted[i]; // Tuple is a value type, so need to copy first...
+            order.floorAlloc += 1; // Modify the copy...
+            sorted[i] = order; // Then assign back
+        }
+
+        return sorted.Select(x => (x.order, x.floorAlloc)).ToList();
     }
 }

@@ -141,7 +141,7 @@ public class ProRataOrderMatcherTests
     }
 
     [TestMethod]
-    public void MatchOrders_InvalidOrders_InvalidOrderState()
+    public void MatchOrders_ZeroAndNegativeVolume_InvalidOrderState()
     {
         var orders = new List<Order>
         {
@@ -243,5 +243,125 @@ public class ProRataOrderMatcherTests
         var result = matcher.MatchOrders([]);
         
         result.Count.ShouldBe(0);
+    }
+
+    [TestMethod]
+    public void MatchOrders_FirstSellLowerThanBuyRatio_AllSellSharesShouldBeAllocated()
+    {
+        var orders = new List<Order>
+        {
+            new Order("A", "A1", Direction.Buy, 200, 5.00m, DateTime.Now),
+            new Order("B", "B1", Direction.Buy, 50, 5.00m, DateTime.Now),
+            new Order("C", "C1", Direction.Sell, 50, 5.00m, DateTime.Now),
+            new Order("D", "D1", Direction.Sell, 150, 5.00m, DateTime.Now)
+        };
+        var matcher = new ProRataOrderMatcher();
+
+        var result = matcher.MatchOrders(orders);
+
+        // Total: Buy 250, Sell 200
+        // A gets 80% of 200 (160)
+        var a1 = result.First(o => o.OrderId == "A1");
+        a1.MatchState.ShouldBe(MatchState.PartialMatch);
+        a1.RemainingVolume.ShouldBe(40);
+        a1.MatchedOrders.Sum(m => m.Volume).ShouldBe(160);
+        a1.MatchedOrders.ShouldBeEquivalentTo(new List<Match>()
+        {
+            new Match("C1", 5.00m, 50),
+            new Match("D1", 5.00m, 110),
+        });
+
+        // B gets 20% of 200 (40)
+        var b1 = result.First(o => o.OrderId == "B1");
+        b1.MatchState.ShouldBe(MatchState.PartialMatch);
+        b1.RemainingVolume.ShouldBe(10);
+        b1.MatchedOrders.Sum(m => m.Volume).ShouldBe(40);
+        b1.MatchedOrders.ShouldBeEquivalentTo(new List<Match>()
+        {
+            new Match("D1", 5.00m, 40)
+        });
+
+        // C1 is fully matched
+        var c1 = result.First(o => o.OrderId == "C1");
+        c1.MatchState.ShouldBe(MatchState.FullMatch);
+        c1.RemainingVolume.ShouldBe(0);
+        c1.MatchedOrders.Sum(m => m.Volume).ShouldBe(50);
+        c1.MatchedOrders.ShouldBeEquivalentTo(new List<Match>()
+        {
+            new Match("A1", 5.00m, 50),
+        });
+
+        // D1 is fully matched
+        var d1 = result.First(o => o.OrderId == "D1");
+        d1.MatchState.ShouldBe(MatchState.FullMatch);
+        d1.RemainingVolume.ShouldBe(0);
+        d1.MatchedOrders.Sum(m => m.Volume).ShouldBe(150);
+        d1.MatchedOrders.ShouldBeEquivalentTo(new List<Match>()
+        {
+            new Match("A1", 5.00m, 110),
+            new Match("B1", 5.00m, 40)
+        });
+    }
+
+
+    [TestMethod]
+    public void MatchOrders_MultipleOrdersSameVolumeAndNotional_LeftoverSharesDistributed()
+    {
+        // 3 buys, 2 sells, total buy=300, total sell=100
+        // Each buy should get 33, 33, 34 (leftover share goes to earliest order)
+        var orders = new List<Order>
+        {
+            new Order("A", "A1", Direction.Buy, 100, 5.00m, DateTime.Now.AddSeconds(1)),
+            new Order("A", "A2", Direction.Buy, 100, 5.00m, DateTime.Now.AddSeconds(2)),
+            new Order("A", "A3", Direction.Buy, 100, 5.00m, DateTime.Now.AddSeconds(3)),
+            new Order("B", "B1", Direction.Sell, 50, 5.00m, DateTime.Now),
+            new Order("B", "B2", Direction.Sell, 50, 5.00m, DateTime.Now)
+        };
+        var matcher = new ProRataOrderMatcher();
+
+        var result = matcher.MatchOrders(orders);
+
+        // At least one buy should get 34 if there is a leftover share
+        var a1Sum = result.First(o => o.OrderId == "A1").MatchedOrders.Sum(m => m.Volume);
+        a1Sum.ShouldBe(34);
+
+        var a2Sum = result.First(o => o.OrderId == "A2").MatchedOrders.Sum(m => m.Volume);
+        a2Sum.ShouldBe(33);
+
+        var a3Sum = result.First(o => o.OrderId == "A3").MatchedOrders.Sum(m => m.Volume); ;
+        a3Sum.ShouldBe(33);
+
+        var totalMatched = a1Sum + a2Sum + a3Sum;
+        totalMatched.ShouldBe(100);
+    }
+
+    [TestMethod]
+    public void MatchOrders_AllBuyOrders_NoMatch()
+    {
+        var orders = new List<Order>
+        {
+            new Order("A", "A1", Direction.Buy, 100, 5.00m, DateTime.Now),
+            new Order("A", "A2", Direction.Buy, 200, 5.00m, DateTime.Now)
+        };
+        var matcher = new ProRataOrderMatcher();
+
+        var result = matcher.MatchOrders(orders);
+
+        result.All(o => o.MatchState == MatchState.NoMatch).ShouldBeTrue();
+    }
+
+    [TestMethod]
+    public void MatchOrders_AllSellOrders_NoMatch()
+    {
+        var orders = new List<Order>
+        {
+            new Order("B", "B1", Direction.Sell, 100, 5.00m, DateTime.Now),
+            new Order("B", "B2", Direction.Sell, 200, 5.00m, DateTime.Now)
+        };
+        var matcher = new ProRataOrderMatcher();
+
+        var result = matcher.MatchOrders(orders);
+
+        result.All(o => o.MatchState == MatchState.NoMatch).ShouldBeTrue();
     }
 }

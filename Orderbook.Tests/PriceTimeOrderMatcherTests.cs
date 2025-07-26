@@ -101,7 +101,7 @@ public class PriceTimeOrderMatcherTests
     }
 
     [TestMethod]
-    public void MatchOrders_WithInvalidOrder_InvalidOrder()
+    public void MatchOrders_ZeroAndNegativeVolume_InvalidOrderState()
     {
         var orders = new List<Order>
         {
@@ -178,5 +178,98 @@ public class PriceTimeOrderMatcherTests
         // F1 NoMatch
         result[5].MatchState.ShouldBe(MatchState.NoMatch);
         result[5].MatchedOrders.Count.ShouldBe(0);
+    }
+
+    [TestMethod]
+    public void MatchOrders_MultipleOrdersSamePriceAndTime_DeterministicOrder()
+    {
+        var orders = new List<Order>
+        {
+            new Order("A", "A1", Direction.Buy, 50, 5.00m, new DateTime(2025, 6, 1, 9, 0, 0)),
+            new Order("A", "A2", Direction.Buy, 50, 5.00m, new DateTime(2025, 6, 1, 9, 0, 0)),
+            new Order("B", "B1", Direction.Sell, 100, 5.00m, new DateTime(2025, 6, 1, 9, 1, 0))
+        };
+        var matcher = new PriceTimeOrderMatcher();
+
+        var result = matcher.MatchOrders(orders);
+
+        result.First(o => o.OrderId == "A1").MatchState.ShouldBe(MatchState.FullMatch);
+        result.First(o => o.OrderId == "A2").MatchState.ShouldBe(MatchState.FullMatch);
+        result.First(o => o.OrderId == "B1").MatchState.ShouldBe(MatchState.FullMatch);
+    }
+
+    [TestMethod]
+    public void MatchOrders_EmptyOrderList_ReturnsEmpty()
+    {
+        var matcher = new PriceTimeOrderMatcher();
+
+        var result = matcher.MatchOrders([]);
+
+        result.Count.ShouldBe(0);
+    }
+
+    [TestMethod]
+    public void MatchOrders_AllBuyOrders_NoMatch()
+    {
+        var orders = new List<Order>
+        {
+            new Order("A", "A1", Direction.Buy, 100, 5.00m, DateTime.Now),
+            new Order("A", "A2", Direction.Buy, 200, 5.00m, DateTime.Now)
+        };
+        var matcher = new PriceTimeOrderMatcher();
+
+        var result = matcher.MatchOrders(orders);
+
+        result.ShouldAllBe(o => o.MatchState == MatchState.NoMatch);
+    }
+
+    [TestMethod]
+    public void MatchOrders_AllSellOrders_NoMatch()
+    {
+        var orders = new List<Order>
+        {
+            new Order("B", "B1", Direction.Sell, 100, 5.00m, DateTime.Now),
+            new Order("B", "B2", Direction.Sell, 200, 5.00m, DateTime.Now)
+        };
+        var matcher = new PriceTimeOrderMatcher();
+
+        var result = matcher.MatchOrders(orders);
+
+        result.ShouldAllBe(o => o.MatchState == MatchState.NoMatch);
+    }
+
+    [TestMethod]
+    public void MatchOrders_MultipleMatchingOrders_PartialFills()
+    {
+        var orders = new List<Order>
+        {
+            new Order("A", "A1", Direction.Buy, 100, 5.00m, new DateTime(2025, 6, 1, 9, 0, 0)),
+            new Order("A", "A2", Direction.Buy, 100, 5.00m, new DateTime(2025, 6, 1, 9, 1, 0)),
+            new Order("B", "B1", Direction.Sell, 150, 5.00m, new DateTime(2025, 6, 1, 9, 2, 0))
+        };
+        var matcher = new PriceTimeOrderMatcher();
+
+        var result = matcher.MatchOrders(orders);
+
+        result.First(o => o.OrderId == "A1").MatchState.ShouldBe(MatchState.FullMatch);
+        result.First(o => o.OrderId == "A2").MatchState.ShouldBe(MatchState.PartialMatch);
+        result.First(o => o.OrderId == "A2").RemainingVolume.ShouldBe(50);
+        result.First(o => o.OrderId == "B1").MatchState.ShouldBe(MatchState.FullMatch);
+    }
+
+    [TestMethod]
+    public void MatchOrders_BuyLowerThanSell_NoMatch()
+    {
+        var orders = new List<Order>
+        {
+            new Order("A", "A1", Direction.Buy, 100, 4.00m, DateTime.Now),
+            new Order("B", "B1", Direction.Sell, 100, 5.00m, DateTime.Now)
+        };
+        var matcher = new PriceTimeOrderMatcher();
+
+        var result = matcher.MatchOrders(orders);
+
+        result.First(o => o.OrderId == "A1").MatchState.ShouldBe(MatchState.NoMatch);
+        result.First(o => o.OrderId == "B1").MatchState.ShouldBe(MatchState.NoMatch);
     }
 }
