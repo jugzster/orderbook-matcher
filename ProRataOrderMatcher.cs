@@ -161,6 +161,7 @@ public class ProRataOrderMatcher : IOrderMatcher
             .ThenBy(x => x.order.OrderId) // Tie-breaker
             .ToList();
 
+        // The remainders can only sum to less than orders.Count, so no need to worry about index out of range
         for (int i = 0; i < totalRemainder; i++)
         {
             var order = sorted[i]; // Tuple is a value type, so need to copy first...
