@@ -3,8 +3,10 @@ namespace OrderbookMatcher;
 
 public class PriceTimeOrderMatcher : IOrderMatcher
 {
-    public List<Order> MatchOrders(List<Order> orders)
+    public List<Order> MatchOrders(List<Order> origOrders)
     {
+        var orders = origOrders.Select(o => o.DeepCopy()).ToList();
+
         // Reset order state and match list
         foreach (var order in orders)
             order.ResetMatchState();
@@ -15,14 +17,14 @@ public class PriceTimeOrderMatcher : IOrderMatcher
             .Where(o => o.Direction == Direction.Buy && o.MatchState != MatchState.InvalidOrder)
             .OrderByDescending(o => o.Notional)
             .ThenBy(o => o.OrderDateTime)
-            .ToList();
+            .ThenBy(o => o.OrderId);
 
         // For sell orders, lower price first
         var sellOrders = orders
             .Where(o => o.Direction == Direction.Sell && o.MatchState != MatchState.InvalidOrder)
             .OrderBy(o => o.Notional)
             .ThenBy(o => o.OrderDateTime)
-            .ToList();
+            .ThenBy(o => o.OrderId);
 
         // Use queue for O(n) matching, avoids duplicate enumeration
         var sellQueue = new Queue<Order>(sellOrders);

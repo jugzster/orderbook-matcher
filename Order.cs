@@ -22,4 +22,12 @@ public class Order(string companyId, string orderId, Direction direction, int vo
         if (Volume <= 0)
             MatchState = MatchState.InvalidOrder;
     }
+
+    public Order DeepCopy() =>
+        new Order(CompanyId, OrderId, Direction, Volume, Notional, OrderDateTime)
+        {
+            MatchState = MatchState,
+            RemainingVolume = RemainingVolume,
+            MatchedOrders = new List<Match>(MatchedOrders)
+        };
 }

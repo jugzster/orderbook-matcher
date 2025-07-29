@@ -3,8 +3,10 @@ namespace OrderbookMatcher;
 
 public class ProRataOrderMatcher : IOrderMatcher
 {
-    public List<Order> MatchOrders(List<Order> orders)
+    public List<Order> MatchOrders(List<Order> origOrders)
     {
+        var orders = origOrders.Select(o => o.DeepCopy()).ToList();
+
         // Reset order state and match list
         foreach (var order in orders)
             order.ResetMatchState();
